@@ -61,7 +61,7 @@ public class index extends JFrame {
 
 		// window setting below
 		setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-		setTitle("Search Engine Excel - Copyright © 2018 Micron Technology");
+		
 		setPreferredSize(new Dimension(600, 720));
 
 		file.setText("File");
@@ -70,7 +70,7 @@ public class index extends JFrame {
 		clearWindow.setText("Clear Window");
 
 		// title
-		JLabel title = new JLabel("Search Engine Excel © 2018");
+		JLabel title = new JLabel("Search Engine Excel Â© 2018");
 		title.setFont(new Font("monospaced", Font.ROMAN_BASELINE, 20));
 		this.add(title, BorderLayout.PAGE_START);
 
