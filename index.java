@@ -5,13 +5,16 @@
  */
 import java.awt.*;
 import java.awt.event.*;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 
 import javax.swing.*;
 import javax.swing.border.Border;
+import javax.swing.table.DefaultTableModel;
 
 import java.util.*;
+
+import jxl.*;
+import jxl.read.biff.BiffException;
 
 public class index extends JFrame {
 	private JMenuBar jMenuBar;
@@ -37,12 +40,24 @@ public class index extends JFrame {
 	// buttons
 	private JButton continueButton;
 
+	// app icon
+	private ImageIcon img;
+
+	// Search table
+
+	private JTable table;
+	private DefaultTableModel defTab;
+
 	public index() {
 		init();
 	}
 
 	private void init() {
 
+		// setting icon image
+
+		img = new ImageIcon("C:\\Users\\imorsilin\\Desktop\\icon.png");
+		this.setIconImage(img.getImage());
 		// setting up menu tab values
 		jMenuBar = new JMenuBar();
 		file = new JMenu();
@@ -61,7 +76,7 @@ public class index extends JFrame {
 
 		// window setting below
 		setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-		
+		setTitle("Search Engine Excel - Copyright © 2018 Micron Technology");
 		setPreferredSize(new Dimension(600, 720));
 
 		file.setText("File");
@@ -105,6 +120,10 @@ public class index extends JFrame {
 
 		loadFilter.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
+				// this resets the user filter, assuming it was already filled
+				if (userFilter.size() != 0) {
+					userFilter.clear();
+				}
 				if (load) {
 					filterBox = loadFilterAction(e);
 
@@ -113,15 +132,14 @@ public class index extends JFrame {
 
 					for (int i = 0; i < filterBox.size(); i++) {
 						Checkbox boxLabel = new Checkbox(filterBox.get(i).getLabel());
+
 						boxLabel.addItemListener(new ItemListener() {
 							@Override
 							public void itemStateChanged(ItemEvent e) {
 								if (e.getStateChange() == ItemEvent.SELECTED) {
 									System.out.println("Selected");
 									userFilter.add(boxLabel);
-								}
-
-								if (e.getStateChange() == ItemEvent.DESELECTED) {
+								} else if (e.getStateChange() == ItemEvent.DESELECTED) {
 									System.out.println("Deselected");
 									userFilter.remove(boxLabel);
 								}
@@ -138,7 +156,12 @@ public class index extends JFrame {
 						continueButton = new JButton("Continue");
 						continueButton.addActionListener(new ActionListener() {
 							public void actionPerformed(ActionEvent e) {
-								continueAction(e, userFilter);
+								try {
+									continueAction(e, userFilter);
+								} catch (IOException e1) {
+									// TODO Auto-generated catch block
+									e1.printStackTrace();
+								}
 							}
 						});
 
@@ -164,8 +187,10 @@ public class index extends JFrame {
 
 	// get the file path and send it to excel
 	private void openFileAction(ActionEvent e) throws IOException {
+		clearFileAction(e);
 		filePath = "";
 		listOfFilterNames.clear();
+
 		JFileChooser fileChooser = new JFileChooser();
 		int returnValue = fileChooser.showOpenDialog(null);
 		if (returnValue == JFileChooser.APPROVE_OPTION) {
@@ -205,12 +230,88 @@ public class index extends JFrame {
 		load = true;
 	}
 
-	private void continueAction(ActionEvent e, ArrayList<Checkbox> userFilter) {
-		String theseFilters = "";
-		for (int i = 0; i < userFilter.size(); i++) {
-			theseFilters += userFilter.get(i).getLabel() + ", ";
+	private void continueAction(ActionEvent e, ArrayList<Checkbox> userFilter) throws IOException {
+		ArrayList<String> reorder = new ArrayList<String>();
+		String inputFile = filePath;
+		File inputWorkBook = new File(inputFile);
+		Workbook w;
+		int row = 0;
+		JFrame window = new JFrame();
+		window.repaint();
+		window.revalidate();
+		try {
+			w = Workbook.getWorkbook(inputWorkBook);
+			Sheet sheet = w.getSheet(0);
+			row = sheet.getRows();
+
+			// colName is ordered based on how the user selected the checkbox
+			String[] colName = new String[userFilter.size()];
+			for (int i = 0; i < colName.length; i++) {
+				colName[i] = userFilter.get(i).getLabel();
+			}
+			// the following reorders the filters to its original order
+			for (int i = 0; i < filterBox.size(); i++) {
+				String thisFilter = filterBox.get(i).getLabel();
+				for (int j = 0; j < colName.length; j++) {
+					if (thisFilter.equals(colName[j])) {
+						reorder.add(thisFilter);
+					}
+				}
+			}
+
+			for (int i = 0; i < colName.length; i++) {
+				colName[i] = "";
+			}
+
+			for (int i = 0; i < colName.length; i++) {
+				colName[i] = reorder.get(i);
+			}
+
+			for (String c : colName) {
+				System.out.println(c);
+			}
+
+			defTab = new DefaultTableModel(colName, 0);
+			JTable test = new JTable(defTab);
+
+			window.getContentPane().add(new JScrollPane(test), BorderLayout.CENTER);
+			window.setSize(1000, 720);
+			window.setVisible(true);
+			pack();
+
+			int rowCounter = 1;
+			for (int i = rowCounter; i < sheet.getRows(); i++) {
+				int userIndex = 0;
+				int nextCol = 0;
+				ArrayList<String> addThisRow = new ArrayList<String>();
+				for (int j = 0; j < sheet.getColumns(); j++) {
+					if (j > userFilter.size() && addThisRow.size() == userFilter.size()) {
+						break;
+					}
+					String thisFilter = reorder.get(userIndex);
+					if (sheet.getCell(nextCol, 0).getContents().equals(thisFilter)) {
+						addThisRow.add(sheet.getCell(nextCol, i).getContents());
+						userIndex++;
+						if (userIndex == userFilter.size()) {
+							break;
+						}
+					} else {
+						nextCol++;
+						j--;
+					}
+				}
+
+				Object[] content = new Object[addThisRow.size()];
+				for (int k = 0; k < content.length; k++) {
+					content[k] = addThisRow.get(k);
+				}
+
+				defTab.addRow(content);
+			}
+
+		} catch (BiffException e1) {
+			e1.printStackTrace();
 		}
-		JOptionPane.showMessageDialog(this, theseFilters);
 
 	}
 
