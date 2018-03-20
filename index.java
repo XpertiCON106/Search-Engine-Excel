@@ -3,20 +3,25 @@
  * Vetrov Search v1.2
  * Developed by Immamul Morsilin
  */
+
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
-
 import javax.swing.*;
 import javax.swing.border.Border;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableModel;
+import javax.swing.table.TableRowSorter;
 
 import java.util.*;
-
 import jxl.*;
 import jxl.read.biff.BiffException;
 
 public class index extends JFrame {
+
+	// these are for the menu bar
 	private JMenuBar jMenuBar;
 	private JMenu file;
 	private JMenuItem openFile;
@@ -24,38 +29,29 @@ public class index extends JFrame {
 	private JMenuItem clearWindow;
 	private String filePath;
 
+	// to get the actual filters
 	private ArrayList<String> listOfFilterNames;
 	private ArrayList<Checkbox> filterBox;
+	private int numberOfFilters;
 	private ArrayList<Checkbox> userFilter;
 
 	private boolean isCleared;
 	private boolean load;
 
 	private ExcelMod excelFile;
-	private int numberOfFilters;
-
 	private JPanel selectFilterPanel;
 	private Container contentPane;
-
-	// buttons
 	private JButton continueButton;
 
-	// app icon
 	private ImageIcon img;
-
-	// Search table
-
-	private JTable table;
-	private DefaultTableModel defTab;
+	private DefaultTableModel defaultTableModel;
 
 	public index() {
 		init();
 	}
 
 	private void init() {
-
 		// setting icon image
-
 		img = new ImageIcon("C:\\Users\\imorsilin\\Desktop\\icon.png");
 		this.setIconImage(img.getImage());
 		// setting up menu tab values
@@ -79,6 +75,7 @@ public class index extends JFrame {
 		setTitle("Search Engine Excel - Copyright © 2018 Micron Technology");
 		setPreferredSize(new Dimension(600, 720));
 
+		// menu items
 		file.setText("File");
 		openFile.setText("Open File");
 		loadFilter.setText("Load Filter");
@@ -97,12 +94,8 @@ public class index extends JFrame {
 		jMenuBar.add(file);
 		setJMenuBar(jMenuBar);
 
-		// action for menu items the try-catch block is needed because
-		// ExcelMod.getNumberOfFilters
-		// throws an IOException
 		openFile.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				// TODO can't open a file while another file is already active
 				try {
 					openFileAction(e);
 					load = true;
@@ -126,10 +119,8 @@ public class index extends JFrame {
 				}
 				if (load) {
 					filterBox = loadFilterAction(e);
-
 					selectFilterPanel = new JPanel(new GridLayout(0, 1));
 					Border border = BorderFactory.createTitledBorder("Available Filters");
-
 					for (int i = 0; i < filterBox.size(); i++) {
 						Checkbox boxLabel = new Checkbox(filterBox.get(i).getLabel());
 
@@ -148,10 +139,10 @@ public class index extends JFrame {
 						selectFilterPanel.add(boxLabel);
 					}
 
+					// filter box is already filled
 					if (filterBox.size() != 0) {
 						selectFilterPanel.setBorder(border);
 						contentPane = index.this.getContentPane();
-
 						// TODO continue button should list out UI fields
 						continueButton = new JButton("Continue");
 						continueButton.addActionListener(new ActionListener() {
@@ -159,7 +150,6 @@ public class index extends JFrame {
 								try {
 									continueAction(e, userFilter);
 								} catch (IOException e1) {
-									// TODO Auto-generated catch block
 									e1.printStackTrace();
 								}
 							}
@@ -190,7 +180,6 @@ public class index extends JFrame {
 		clearFileAction(e);
 		filePath = "";
 		listOfFilterNames.clear();
-
 		JFileChooser fileChooser = new JFileChooser();
 		int returnValue = fileChooser.showOpenDialog(null);
 		if (returnValue == JFileChooser.APPROVE_OPTION) {
@@ -239,6 +228,7 @@ public class index extends JFrame {
 		JFrame window = new JFrame();
 		window.repaint();
 		window.revalidate();
+
 		try {
 			w = Workbook.getWorkbook(inputWorkBook);
 			Sheet sheet = w.getSheet(0);
@@ -258,27 +248,18 @@ public class index extends JFrame {
 					}
 				}
 			}
-
+			// sorting colName
 			for (int i = 0; i < colName.length; i++) {
 				colName[i] = "";
-			}
-
-			for (int i = 0; i < colName.length; i++) {
 				colName[i] = reorder.get(i);
 			}
 
-			for (String c : colName) {
-				System.out.println(c);
-			}
+			// TODO search field setup here!
+			defaultTableModel = new DefaultTableModel(colName, 0);
+			JTable table = new JTable(defaultTableModel);
+			table.setAutoCreateRowSorter(true);
 
-			defTab = new DefaultTableModel(colName, 0);
-			JTable test = new JTable(defTab);
-
-			window.getContentPane().add(new JScrollPane(test), BorderLayout.CENTER);
-			window.setSize(1000, 720);
-			window.setVisible(true);
-			pack();
-
+			// this actually populates the data from the Excel file based on filters
 			int rowCounter = 1;
 			for (int i = rowCounter; i < sheet.getRows(); i++) {
 				int userIndex = 0;
@@ -301,13 +282,62 @@ public class index extends JFrame {
 					}
 				}
 
+				// this puts each row as an object and add it in
 				Object[] content = new Object[addThisRow.size()];
 				for (int k = 0; k < content.length; k++) {
 					content[k] = addThisRow.get(k);
 				}
-
-				defTab.addRow(content);
+				defaultTableModel.addRow(content);
 			}
+
+			// TODO add a search field
+			TableRowSorter<TableModel> rowSorter = new TableRowSorter<>(table.getModel());
+			JTextField filter = new JTextField();
+			JButton filterButton = new JButton("Filter");
+
+			table.setRowSorter(rowSorter);
+
+			JPanel panel = new JPanel(new BorderLayout());
+			panel.add(new JLabel("Search filters: "), BorderLayout.WEST);
+			panel.add(filter, BorderLayout.CENTER);
+
+			window.setLayout(new BorderLayout());
+			window.add(panel, BorderLayout.SOUTH);
+			window.add(new JScrollPane(table), BorderLayout.CENTER);
+
+			filter.getDocument().addDocumentListener(new DocumentListener() {
+				@Override
+				public void changedUpdate(DocumentEvent arg0) {
+					// TODO Auto-generated method stub
+					throw new UnsupportedOperationException("Not supported yet.");
+				}
+
+				@Override
+				public void insertUpdate(DocumentEvent arg0) {
+					// TODO Auto-generated method stub
+					String text = filter.getText();
+					if (text.trim().length() == 0) {
+						rowSorter.setRowFilter(null);
+					} else {
+						rowSorter.setRowFilter(RowFilter.regexFilter("(?i)" + text));
+					}
+				}
+
+				@Override
+				public void removeUpdate(DocumentEvent arg0) {
+					// TODO Auto-generated method stub
+					String text = filter.getText();
+					if (text.trim().length() == 0) {
+						rowSorter.setRowFilter(null);
+					} else {
+						rowSorter.setRowFilter(RowFilter.regexFilter("(?i)" + text));
+					}
+				}
+			});
+
+			window.setSize(800, 720);
+			window.setVisible(true);
+			pack();
 
 		} catch (BiffException e1) {
 			e1.printStackTrace();
